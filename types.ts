@@ -8,27 +8,51 @@ export interface Message {
   timestamp: number;
 }
 
+export type ProviderType = 'ollama' | 'openai-compatible';
+
+export interface AIProvider {
+  id: string;
+  name: string;
+  type: ProviderType;
+  baseUrl: string;
+  apiKey?: string;
+  enabled: boolean;
+}
+
+export interface Model {
+  id: string;
+  name: string;
+  providerId: string;
+  size?: string;
+  family?: string;
+}
+
+export interface Document {
+  id: string;
+  name: string;
+  content: string;
+  size: number;
+  type: string;
+  createdAt: number;
+}
+
+export interface KnowledgeBase {
+  id: string;
+  name: string;
+  description: string;
+  documents: Document[];
+  createdAt: number;
+}
+
 export interface ChatSession {
   id: string;
   title: string;
   messages: Message[];
-  model: string;
+  modelId: string;
+  providerId: string;
+  knowledgeBaseId?: string; // 关联的知识库
   createdAt: number;
   updatedAt: number;
-}
-
-export interface OllamaModel {
-  name: string;
-  modified_at: string;
-  size: number;
-  digest: string;
-  details: {
-    format: string;
-    family: string;
-    families: string[] | null;
-    parameter_size: string;
-    quantization_level: string;
-  };
 }
 
 export interface OllamaChatResponse {
@@ -39,10 +63,4 @@ export interface OllamaChatResponse {
     content: string;
   };
   done: boolean;
-  total_duration?: number;
-  load_duration?: number;
-  prompt_eval_count?: number;
-  prompt_eval_duration?: number;
-  eval_count?: number;
-  eval_duration?: number;
 }

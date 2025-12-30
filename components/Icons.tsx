@@ -17,7 +17,10 @@ import {
   Check,
   RefreshCw,
   MoreVertical,
-  Layers
+  Layers,
+  Database,
+  Upload,
+  FileText
 } from 'lucide-react';
 
 export {
@@ -37,5 +40,8 @@ export {
   Check,
   RefreshCw,
   MoreVertical,
-  Layers
+  Layers,
+  Database,
+  Upload,
+  FileText
 };

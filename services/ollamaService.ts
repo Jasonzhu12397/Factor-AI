@@ -1,5 +1,5 @@
 
-import { OllamaModel, Message, OllamaChatResponse } from '../types';
+import { Model, Message, OllamaChatResponse } from '../types';
 
 let OLLAMA_BASE_URL = localStorage.getItem('ollama_base_url') || 'http://localhost:11434';
 
@@ -14,7 +14,8 @@ export const ollamaService = {
     return OLLAMA_BASE_URL;
   },
 
-  async getModels(): Promise<OllamaModel[]> {
+  // Fixed: Replaced OllamaModel with Model from types.ts
+  async getModels(): Promise<Model[]> {
     try {
       const response = await fetch(`${OLLAMA_BASE_URL}/api/tags`);
       if (!response.ok) throw new Error('Failed to fetch models');

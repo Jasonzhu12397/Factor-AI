@@ -1,31 +1,37 @@
 
-# Factor - Ollama Web GUI (Windows)
+# Factor - 小鲸鱼 RAG 智能 Web GUI
 
-Factor 是一个为 [Ollama](https://ollama.com/) 设计的现代、高性能本地大模型 Web 图形界面。
+Factor 是一个面向 [Ollama](https://ollama.com/) 和云端大模型（DeepSeek等）设计的 RAG 增强型 Web 界面。它不仅支持本地模型的高效运行，还内置了轻量级知识库检索系统。
 
-## 1. 环境准备
-*   **Node.js**: v18+
-*   **Ollama**: 已安装并正在运行。
+## 🐳 小鲸鱼是谁？
+小鲸鱼是 Factor 内置的 AI 助手身份。无论你切换到哪个底层模型，它都会保持统一的亲和力身份，并能实时从你的私有文档中检索信息。
 
-## 2. 调试指南 (VS Code)
+## ✨ 核心特性
+*   **私有 RAG (检索增强生成)**：支持上传 `.txt` 和 `.md` 文档。
+*   **混合引擎驱动**：同时支持本地 Ollama (🏠) 与 云端 OpenAI 兼容 API (☁️)。
+*   **多知识库管理**：支持创建多个知识库，并为不同对话挂载专属文档。
+*   **极致交互**：流式响应、暗黑模式、完全响应式设计。
 
-### 步骤 A：解决跨域 (CORS) - 必须执行
-1.  退出任务栏中的 Ollama。
-2.  在 Windows 环境变量中添加：
-    *   `OLLAMA_ORIGINS` = `*`
-3.  重启 Ollama。
+## 🚀 快速构建私有 RAG
+1.  **准备环境**: 安装 Node.js v18+ 并在后台运行 Ollama。
+2.  **启动应用**: 
+    ```bash
+    npm install
+    npm run dev
+    ```
+3.  **配置知识库**:
+    *   点击左侧边栏的 **“知识库”** 图标。
+    *   创建一个新知识库并上传你的文本文件。
+4.  **开始对话**:
+    *   切换回 **“对话”** 标签页。
+    *   在顶栏下拉框中选择刚才创建的知识库。
+    *   向小鲸鱼提问，它将结合你的文档给出回答。
 
-### 步骤 B：启动开发服务器
-在 VS Code 终端运行：
-```bash
-npm run dev
-```
-确认控制台输出：`Local: http://localhost:3000`
+## 📦 技术架构
+*   **前端**: React 19 + Tailwind CSS + Lucide Icons
+*   **状态管理**: LocalStorage 持久化 + React State
+*   **AI 接口**: 统一 OpenAI / Ollama 协议适配器
+*   **RAG 逻辑**: 客户端关键词匹配检索（可扩展为 Vector API）
 
-### 步骤 C：开始断点调试
-1.  按下 `F5` 或在左侧点击“运行和调试”图标。
-2.  选择 **"Debug Factor in Chrome"**。
-3.  VS Code 会自动打开一个新的 Chrome 窗口，此时你可以在 `.tsx` 文件中点击行号左侧打断点。
-
-## 3. 打包安装包
-*   运行 `npm run tauri build` 即可在 `src-tauri/target/release/bundle` 下找到 .exe。
+## 🛡️ 隐私声明
+所有上传的文档内容仅存储在您的浏览器 LocalStorage 中，不会上传到任何第三方服务器。除非您配置并使用了云端模型 API。
