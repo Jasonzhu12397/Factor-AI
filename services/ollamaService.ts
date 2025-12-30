@@ -1,9 +1,19 @@
 
 import { OllamaModel, Message, OllamaChatResponse } from '../types';
 
-const OLLAMA_BASE_URL = 'http://localhost:11434';
+let OLLAMA_BASE_URL = localStorage.getItem('ollama_base_url') || 'http://localhost:11434';
 
 export const ollamaService = {
+  setBaseUrl(url: string) {
+    // Ensure URL has no trailing slash
+    OLLAMA_BASE_URL = url.replace(/\/$/, '');
+    localStorage.setItem('ollama_base_url', OLLAMA_BASE_URL);
+  },
+
+  getBaseUrl() {
+    return OLLAMA_BASE_URL;
+  },
+
   async getModels(): Promise<OllamaModel[]> {
     try {
       const response = await fetch(`${OLLAMA_BASE_URL}/api/tags`);

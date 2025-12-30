@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatContainer from './components/ChatContainer';
-import { Menu, Sun, Moon } from './components/Icons';
+import { Menu, Sun, Moon, Settings, X } from './components/Icons';
 import { ChatSession, Message, OllamaModel } from './types';
 import { ollamaService } from './services/ollamaService';
 
@@ -15,6 +15,8 @@ const App: React.FC = () => {
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [isOllamaActive, setIsOllamaActive] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [tempUrl, setTempUrl] = useState(ollamaService.getBaseUrl());
 
   // Persistence
   useEffect(() => {
@@ -31,6 +33,11 @@ const App: React.FC = () => {
     if (savedDarkMode === 'true') {
       setIsDarkMode(true);
       document.documentElement.classList.add('dark');
+    }
+
+    // Auto-close sidebar on mobile
+    if (window.innerWidth < 1024) {
+      setIsSidebarOpen(false);
     }
   }, []);
 
@@ -50,7 +57,6 @@ const App: React.FC = () => {
 
   useEffect(() => {
     fetchModels();
-    // Poll for status
     const interval = setInterval(fetchModels, 10000);
     return () => clearInterval(interval);
   }, [fetchModels]);
@@ -64,6 +70,12 @@ const App: React.FC = () => {
     } else {
       document.documentElement.classList.remove('dark');
     }
+  };
+
+  const saveSettings = () => {
+    ollamaService.setBaseUrl(tempUrl);
+    setShowSettings(false);
+    fetchModels();
   };
 
   const handleNewSession = () => {
@@ -95,7 +107,6 @@ const App: React.FC = () => {
     let targetSessionId = currentSessionId;
     let currentSessions = [...sessions];
 
-    // Create session if none exists
     if (!targetSessionId) {
       const newId = Date.now().toString();
       const newSession: ChatSession = {
@@ -191,7 +202,6 @@ const App: React.FC = () => {
       />
 
       <main className="flex-1 flex flex-col min-w-0">
-        {/* Top Navbar */}
         <header className="h-14 flex items-center justify-between px-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 z-20">
           <div className="flex items-center gap-4">
             {!isSidebarOpen && (
@@ -203,14 +213,20 @@ const App: React.FC = () => {
               </button>
             )}
             <div className="hidden md:flex flex-col">
-              <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Local Node</span>
+              <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Factor Node</span>
               <span className="text-sm font-semibold truncate max-w-[200px]">
                 {currentSession?.title || 'Untitled Chat'}
               </span>
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={() => setShowSettings(true)}
+              className="p-2 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
+            >
+              <Settings size={20} />
+            </button>
             <button 
               onClick={handleToggleDarkMode}
               className="p-2 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
@@ -220,7 +236,6 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        {/* Chat Area */}
         <ChatContainer
           messages={currentSession?.messages || []}
           isLoading={isLoading}
@@ -229,6 +244,47 @@ const App: React.FC = () => {
           isOllamaActive={isOllamaActive}
         />
       </main>
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+              <h3 className="text-lg font-bold">Network Settings</h3>
+              <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-500 mb-1">Ollama Server URL</label>
+                <input 
+                  type="text" 
+                  value={tempUrl}
+                  onChange={(e) => setTempUrl(e.target.value)}
+                  placeholder="http://192.168.1.5:11434"
+                  className="w-full px-4 py-2.5 bg-slate-100 dark:bg-slate-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-indigo-500"
+                />
+                <p className="mt-2 text-xs text-slate-400">
+                  On mobile, enter your computer's local IP address instead of localhost.
+                </p>
+              </div>
+            </div>
+            <div className="p-6 bg-slate-50 dark:bg-slate-800/50 flex justify-end gap-3">
+              <button 
+                onClick={() => setShowSettings(false)}
+                className="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={saveSettings}
+                className="px-6 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
