@@ -1,0 +1,8 @@
+flask==2.3.3
+pydantic==1.10.13
+chromadb==0.4.24
+sentence-transformers==2.2.2
+torch==2.1.2
+PyPDF2==2.12.1
+python-docx==0.8.17
+python-dotenv==1.0.0
