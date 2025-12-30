@@ -1,0 +1,8 @@
+{
+  "name": "Factor",
+  "description": "A high-performance, modern Web GUI for Ollama local LLMs featuring streaming responses, multi-model support, and session management.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
