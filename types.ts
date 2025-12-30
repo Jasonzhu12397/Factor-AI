@@ -6,6 +6,8 @@ export interface Message {
   role: Role;
   content: string;
   timestamp: number;
+  sources?: string[]; // 引用的文档来源
+  isThinking?: boolean; // 是否处于检索/思考状态
 }
 
 export type ProviderType = 'ollama' | 'openai-compatible';
@@ -50,7 +52,7 @@ export interface ChatSession {
   messages: Message[];
   modelId: string;
   providerId: string;
-  knowledgeBaseId?: string; // 关联的知识库
+  knowledgeBaseId?: string;
   createdAt: number;
   updatedAt: number;
 }

@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
 import { KnowledgeBase, Document } from '../types';
-import { Plus, Trash2, FileText, Upload, Database, X } from './Icons';
+import { Plus, Trash2, FileText, Upload, Database } from './Icons';
+import { aiService } from '../services/aiService';
 
 interface KnowledgeBaseManagerProps {
   knowledgeBases: KnowledgeBase[];
@@ -10,6 +11,7 @@ interface KnowledgeBaseManagerProps {
 
 const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({ knowledgeBases, onUpdate }) => {
   const [activeKBId, setActiveKBId] = useState<string | null>(knowledgeBases[0]?.id || null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const addKB = () => {
     const name = prompt("输入知识库名称:");
@@ -31,19 +33,29 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({ knowledgeBa
     const reader = new FileReader();
     
     reader.onload = async (event) => {
+      setIsSyncing(true);
       const content = event.target?.result as string;
-      const newDoc: Document = {
-        id: Date.now().toString(),
-        name: file.name,
-        content: content,
-        size: file.size,
-        type: file.type,
-        createdAt: Date.now()
-      };
+      
+      // 1. 同步到后端进行 RAG 向量化
+      const syncResult = await aiService.syncDocument(activeKBId, file.name, content);
+      
+      if (syncResult) {
+        const newDoc: Document = {
+          id: Date.now().toString(),
+          name: file.name,
+          content: content,
+          size: file.size,
+          type: file.type,
+          createdAt: Date.now()
+        };
 
-      onUpdate(knowledgeBases.map(kb => 
-        kb.id === activeKBId ? { ...kb, documents: [...kb.documents, newDoc] } : kb
-      ));
+        onUpdate(knowledgeBases.map(kb => 
+          kb.id === activeKBId ? { ...kb, documents: [...kb.documents, newDoc] } : kb
+        ));
+      } else {
+        alert("后端连接失败，文档未能向量化。请确保 Python 后端已运行。");
+      }
+      setIsSyncing(false);
     };
     reader.readAsText(file);
   };
@@ -83,9 +95,9 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({ knowledgeBa
                 <h2 className="text-3xl font-black tracking-tighter">{activeKB.name}</h2>
                 <p className="text-slate-400 font-medium">包含 {activeKB.documents.length} 个文档</p>
               </div>
-              <label className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold cursor-pointer hover:bg-indigo-700 transition-all">
-                <Upload size={18} /> 上传文本文档 (TXT/MD)
-                <input type="file" className="hidden" accept=".txt,.md" onChange={handleFileUpload} />
+              <label className={`flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold cursor-pointer hover:bg-indigo-700 transition-all ${isSyncing ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                {isSyncing ? '正在同步到向量库...' : <><Upload size={18} /> 上传并向量化 (TXT/MD)</>}
+                <input type="file" className="hidden" accept=".txt,.md" onChange={handleFileUpload} disabled={isSyncing} />
               </label>
             </div>
 
@@ -97,7 +109,7 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({ knowledgeBa
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="font-bold text-sm truncate">{doc.name}</h4>
-                    <p className="text-[10px] text-slate-400 font-bold">{(doc.size / 1024).toFixed(1)} KB • {new Date(doc.createdAt).toLocaleDateString()}</p>
+                    <p className="text-[10px] text-slate-400 font-bold">{(doc.size / 1024).toFixed(1)} KB • 同步成功</p>
                   </div>
                   <button onClick={() => deleteDoc(activeKB.id, doc.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg opacity-0 group-hover:opacity-100 transition-all">
                     <Trash2 size={16} />
@@ -107,7 +119,7 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({ knowledgeBa
               {activeKB.documents.length === 0 && (
                 <div className="col-span-full py-20 border-2 border-dashed dark:border-slate-800 rounded-3xl flex flex-col items-center justify-center text-slate-400">
                   <Database size={48} className="mb-4 opacity-20" />
-                  <p className="font-bold">暂无文档，点击右上角开始上传</p>
+                  <p className="font-bold text-center">暂无文档<br/>上传后后端会自动进行 RAG 向量切片</p>
                 </div>
               )}
             </div>

@@ -1,99 +1,114 @@
 
-import { Model, Message, AIProvider } from '../types';
+import { Model, AIProvider } from '../types';
+
+const BACKEND_URL = 'http://localhost:8000';
 
 export const aiService = {
-  // 获取 Ollama 本地模型
-  async getOllamaModels(baseUrl: string): Promise<Model[]> {
+  async checkBackendHealth(): Promise<boolean> {
     try {
+      const res = await fetch(`${BACKEND_URL}/api/health`);
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  async getModels(provider: AIProvider): Promise<Model[]> {
+    try {
+      const baseUrl = provider.baseUrl.replace(/\/$/, '');
       const response = await fetch(`${baseUrl}/api/tags`);
       if (!response.ok) return [];
       const data = await response.json();
       return (data.models || []).map((m: any) => ({
         id: m.name,
         name: m.name,
-        providerId: 'local-ollama',
+        providerId: provider.id,
         size: m.details?.parameter_size
       }));
-    } catch {
+    } catch (e) {
+      console.error('Fetch models error:', e);
       return [];
     }
   },
 
-  // 统一流式对话接口
+  // 将文档同步到后端向量库
+  async syncDocument(kbId: string, name: string, content: string) {
+    const formData = new FormData();
+    formData.append('kb_id', kbId);
+    formData.append('name', name);
+    formData.append('content', content);
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/documents`, {
+        method: 'POST',
+        body: formData,
+      });
+      return await res.json();
+    } catch (e) {
+      console.error('Sync document failed:', e);
+      return null;
+    }
+  },
+
   async chatStream(
     provider: AIProvider,
     modelId: string,
     messages: { role: string; content: string }[],
     onChunk: (content: string) => void,
     onDone: () => void,
-    onError: (err: any) => void
+    onError: (err: any) => void,
+    kbId?: string // 传入当前使用的知识库 ID
   ) {
+    const useEnhanced = await this.checkBackendHealth();
+    
     try {
-      const isOllama = provider.type === 'ollama';
-      const baseUrl = provider.baseUrl.replace(/\/$/, '');
-      const url = isOllama ? `${baseUrl}/api/chat` : `${baseUrl}/v1/chat/completions`;
+      const url = useEnhanced ? `${BACKEND_URL}/api/chat` : `${provider.baseUrl.replace(/\/$/, '')}/api/chat`;
       
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (provider.apiKey) {
-        headers['Authorization'] = `Bearer ${provider.apiKey}`;
-      }
-
-      const body = isOllama 
-        ? { model: modelId, messages, stream: true }
-        : { model: modelId, messages, stream: true };
-
       const response = await fetch(url, {
         method: 'POST',
-        headers,
-        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: modelId,
+          messages,
+          stream: true,
+          knowledge_base_id: kbId
+        }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error?.message || `API Error: ${response.status}`);
-      }
+      if (!response.ok) throw new Error("Backend connection failed");
 
       const reader = response.body?.getReader();
-      if (!reader) throw new Error('Stream not supported');
-
+      if (!reader) return;
       const decoder = new TextDecoder();
       let buffer = '';
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
         buffer += decoder.decode(value, { stream: true });
         
-        if (isOllama) {
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-          for (const line of lines) {
-            if (!line.trim()) continue;
-            try {
-              const json = JSON.parse(line);
-              if (json.message?.content) onChunk(json.message.content);
-              if (json.done) onDone();
-            } catch (e) {}
-          }
-        } else {
-          // OpenAI 兼容格式解析
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-          for (const line of lines) {
-            const cleanLine = line.replace(/^data: /, '').trim();
-            if (!cleanLine || cleanLine === '[DONE]') continue;
-            try {
-              const json = JSON.parse(cleanLine);
-              const content = json.choices[0]?.delta?.content;
-              if (content) onChunk(content);
-            } catch (e) {}
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const data = JSON.parse(line);
+            // 处理后端传回的 sources 信息
+            if (data.sources) {
+              // 这里的来源处理可以根据需要回调 UI 展示
+              console.log('RAG Sources:', data.sources);
+              continue;
+            }
+            if (data.message?.content) onChunk(data.message.content);
+            if (data.done) onDone();
+          } catch (e) {
+            // 解析失败通常是由于非 JSON 行或流中断
           }
         }
       }
-      onDone();
     } catch (error: any) {
-      onError(error.message || "未知错误");
+      onError(error.message);
     }
   }
 };
