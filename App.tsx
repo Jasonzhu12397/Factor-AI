@@ -7,7 +7,6 @@ import KnowledgeBaseManager from './components/KnowledgeBaseManager';
 import { aiService } from './services/aiService';
 import { ChatSession, Model, KnowledgeBase, Message, AIProvider } from './types';
 
-// Default provider configuration for local usage
 const DEFAULT_PROVIDER: AIProvider = {
   id: 'local-ollama',
   name: 'Ollama',
@@ -17,28 +16,20 @@ const DEFAULT_PROVIDER: AIProvider = {
 };
 
 const App: React.FC = () => {
-  /* Fix: Add missing state variables for theme, sidebar, active tab, sessions, models, and loading status */
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<'chat' | 'knowledge'>('chat');
   
-  // State for chat sessions and current focus
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
-  
-  // State for models and knowledge base items
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
   const [models, setModels] = useState<Model[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>('');
-  
-  // Operational status states
   const [isLoading, setIsLoading] = useState(false);
   const [backendStatus, setBackendStatus] = useState<'offline' | 'online'>('offline');
 
-  /* Fix: Correctly define currentSession based on currentSessionId to resolve "Cannot find name 'currentSession'" */
   const currentSession = sessions.find(s => s.id === currentSessionId);
 
-  // Poll for backend health status
   useEffect(() => {
     const check = async () => {
       const isAlive = await aiService.checkBackendHealth();
@@ -49,7 +40,6 @@ const App: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Initial fetch of available models on component mount
   useEffect(() => {
     const fetchModels = async () => {
       const fetchedModels = await aiService.getModels(DEFAULT_PROVIDER);
@@ -61,13 +51,10 @@ const App: React.FC = () => {
     fetchModels();
   }, []);
 
-  // Handle outgoing messages and model interaction
   const handleSendMessage = async (content: string) => {
     if (!selectedModel || isLoading) return;
 
     let sessionId = currentSessionId;
-    
-    // Auto-create a session if one doesn't exist
     if (!sessionId) {
       const newSession: ChatSession = {
         id: Date.now().toString(),
@@ -90,7 +77,6 @@ const App: React.FC = () => {
       timestamp: Date.now(),
     };
 
-    // Update session with user message
     setSessions(prev => prev.map(s => 
       s.id === sessionId ? { ...s, messages: [...s.messages, userMsg], updatedAt: Date.now() } : s
     ));
@@ -103,17 +89,16 @@ const App: React.FC = () => {
       role: 'assistant',
       content: '',
       timestamp: Date.now(),
+      sources: []
     };
 
-    // Placeholder for assistant response
     setSessions(prev => prev.map(s => 
       s.id === sessionId ? { ...s, messages: [...s.messages, assistantMsg] } : s
     ));
 
     try {
-      // Re-fetch current session state for full context
-      const targetSession = sessions.find(s => s.id === sessionId);
-      const history = (targetSession ? [...targetSession.messages, userMsg] : [userMsg]).map(m => ({
+      const targetSession = sessions.find(s => s.id === sessionId) || { messages: [] };
+      const history = [...targetSession.messages, userMsg].map(m => ({
         role: m.role as string,
         content: m.content
       }));
@@ -134,7 +119,8 @@ const App: React.FC = () => {
         (err) => {
           console.error('Chat stream error:', err);
           setIsLoading(false);
-        }
+        },
+        currentSession?.knowledgeBaseId // 传递关联的知识库 ID
       );
     } catch (error) {
       console.error('Failed to send message:', error);
@@ -142,14 +128,11 @@ const App: React.FC = () => {
     }
   };
 
-  const handleNewSession = () => {
-    setCurrentSessionId(null);
-    setActiveTab('chat');
-  };
-
-  const handleDeleteSession = (id: string) => {
-    setSessions(prev => prev.filter(s => s.id !== id));
-    if (currentSessionId === id) setCurrentSessionId(null);
+  const handleSelectKBForSession = (kbId: string) => {
+    if (!currentSessionId) return;
+    setSessions(prev => prev.map(s => 
+      s.id === currentSessionId ? { ...s, knowledgeBaseId: kbId === 'none' ? undefined : kbId } : s
+    ));
   };
 
   return (
@@ -160,25 +143,22 @@ const App: React.FC = () => {
         sessions={sessions}
         currentSessionId={currentSessionId}
         onSelectSession={setCurrentSessionId}
-        onNewSession={handleNewSession}
-        onDeleteSession={handleDeleteSession}
+        onNewSession={() => { setCurrentSessionId(null); setActiveTab('chat'); }}
+        onDeleteSession={(id) => { setSessions(prev => prev.filter(s => s.id !== id)); if(currentSessionId === id) setCurrentSessionId(null); }}
         onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         isOpen={isSidebarOpen}
         models={models}
         selectedModel={selectedModel}
         onSelectModel={setSelectedModel}
+        knowledgeBases={knowledgeBases}
+        onSelectKB={handleSelectKBForSession}
       />
 
       <main className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-950 transition-colors duration-300">
         <header className="h-16 flex items-center justify-between px-6 border-b dark:border-slate-800/60 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md z-20">
           <div className="flex items-center gap-4">
             {!isSidebarOpen && (
-              <button 
-                onClick={() => setIsSidebarOpen(true)} 
-                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
-              >
-                <Menu size={20}/>
-              </button>
+              <button onClick={() => setIsSidebarOpen(true)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"><Menu size={20}/></button>
             )}
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
@@ -193,14 +173,9 @@ const App: React.FC = () => {
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setIsDarkMode(!isDarkMode)} 
-              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all text-slate-500 dark:text-slate-400"
-            >
-              {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-            </button>
-          </div>
+          <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all text-slate-500 dark:text-slate-400">
+            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
         </header>
         
         {activeTab === 'chat' ? (

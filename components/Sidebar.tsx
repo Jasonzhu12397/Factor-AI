@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Plus, MessageSquare, Trash2, Cpu, X, Layers, Database } from './Icons';
-import { ChatSession, Model } from '../types';
+import { ChatSession, Model, KnowledgeBase } from '../types';
 
 interface SidebarProps {
   activeTab: 'chat' | 'knowledge';
@@ -16,12 +16,16 @@ interface SidebarProps {
   models: Model[];
   selectedModel: string;
   onSelectModel: (id: string) => void;
+  knowledgeBases: KnowledgeBase[];
+  onSelectKB: (kbId: string) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
   activeTab, onTabChange, sessions, currentSessionId, onSelectSession, onNewSession, onDeleteSession,
-  onToggleSidebar, isOpen, models, selectedModel, onSelectModel,
+  onToggleSidebar, isOpen, models, selectedModel, onSelectModel, knowledgeBases, onSelectKB
 }) => {
+  const currentSession = sessions.find(s => s.id === currentSessionId);
+
   return (
     <>
       {isOpen && <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-30 lg:hidden" onClick={onToggleSidebar} />}
@@ -47,14 +51,33 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         {activeTab === 'chat' && (
           <>
-            <div className="px-4 py-4 space-y-4">
-              <div className="relative">
-                <select value={selectedModel} onChange={(e) => onSelectModel(e.target.value)} className="w-full pl-3 pr-10 py-3 bg-slate-100 dark:bg-slate-800 border-none rounded-xl text-sm font-bold appearance-none cursor-pointer">
-                  {models.map((m) => <option key={m.id} value={m.id}>{m.providerId === 'local-ollama' ? '🏠 ' : '☁️ '}{m.name}</option>)}
-                </select>
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><Cpu size={16} /></div>
+            <div className="px-4 py-4 space-y-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase ml-1">AI 模型</label>
+                <div className="relative">
+                  <select value={selectedModel} onChange={(e) => onSelectModel(e.target.value)} className="w-full pl-3 pr-10 py-3 bg-slate-100 dark:bg-slate-800 border-none rounded-xl text-sm font-bold appearance-none cursor-pointer">
+                    {models.map((m) => <option key={m.id} value={m.id}>{m.providerId === 'local-ollama' ? '🏠 ' : '☁️ '}{m.name}</option>)}
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><Cpu size={16} /></div>
+                </div>
               </div>
-              <button onClick={onNewSession} className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-all shadow-lg active:scale-95">
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase ml-1">挂载知识库 (RAG)</label>
+                <div className="relative">
+                  <select 
+                    value={currentSession?.knowledgeBaseId || 'none'} 
+                    onChange={(e) => onSelectKB(e.target.value)} 
+                    className="w-full pl-3 pr-10 py-3 bg-slate-100 dark:bg-slate-800 border-none rounded-xl text-sm font-bold appearance-none cursor-pointer"
+                  >
+                    <option value="none">无关联知识库</option>
+                    {knowledgeBases.map((kb) => <option key={kb.id} value={kb.id}>📚 {kb.name}</option>)}
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><Database size={16} /></div>
+                </div>
+              </div>
+
+              <button onClick={onNewSession} className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-all shadow-lg active:scale-95 mt-2">
                 <Plus size={18} /> 新对话
               </button>
             </div>
@@ -63,7 +86,10 @@ const Sidebar: React.FC<SidebarProps> = ({
               {sessions.map((session) => (
                 <div key={session.id} className={`group relative flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer transition-all ${currentSessionId === session.id ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500'}`} onClick={() => onSelectSession(session.id)}>
                   <MessageSquare size={18} className="shrink-0" />
-                  <span className="flex-1 text-sm font-bold truncate pr-6">{session.title}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-bold truncate pr-6">{session.title}</div>
+                    {session.knowledgeBaseId && <div className="text-[9px] font-black text-indigo-500 uppercase mt-0.5">Linked Knowledge</div>}
+                  </div>
                   <button onClick={(e) => { e.stopPropagation(); onDeleteSession(session.id); }} className="absolute right-2 p-1 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"><Trash2 size={14} /></button>
                 </div>
               ))}
