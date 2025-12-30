@@ -30,7 +30,8 @@ export const aiService = {
   ) {
     try {
       const isOllama = provider.type === 'ollama';
-      const url = isOllama ? `${provider.baseUrl}/api/chat` : `${provider.baseUrl}/chat/completions`;
+      const baseUrl = provider.baseUrl.replace(/\/$/, '');
+      const url = isOllama ? `${baseUrl}/api/chat` : `${baseUrl}/v1/chat/completions`;
       
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (provider.apiKey) {
@@ -47,7 +48,10 @@ export const aiService = {
         body: JSON.stringify(body),
       });
 
-      if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || `API Error: ${response.status}`);
+      }
 
       const reader = response.body?.getReader();
       if (!reader) throw new Error('Stream not supported');
@@ -66,9 +70,11 @@ export const aiService = {
           buffer = lines.pop() || '';
           for (const line of lines) {
             if (!line.trim()) continue;
-            const json = JSON.parse(line);
-            if (json.message?.content) onChunk(json.message.content);
-            if (json.done) onDone();
+            try {
+              const json = JSON.parse(line);
+              if (json.message?.content) onChunk(json.message.content);
+              if (json.done) onDone();
+            } catch (e) {}
           }
         } else {
           // OpenAI 兼容格式解析
@@ -86,8 +92,8 @@ export const aiService = {
         }
       }
       onDone();
-    } catch (error) {
-      onError(error);
+    } catch (error: any) {
+      onError(error.message || "未知错误");
     }
   }
 };
